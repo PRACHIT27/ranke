@@ -1,0 +1,23 @@
+name: Ranke
+
+on:
+  push:
+    paths: ["cases.xlsx"]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: test, eval, or both
+        default: both
+
+permissions:
+  contents: read
+
+jobs:
+  ranke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: PRACHIT27/ranke@v1
+        with:
+          file: cases.xlsx
+          mode: ${{ github.event.inputs.mode || 'both' }}

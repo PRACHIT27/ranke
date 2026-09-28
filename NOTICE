@@ -1,0 +1,14 @@
+Ranke
+Copyright 2026 Prachit Tupe
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Ranke downloads and runs the Laya model by Convai Innovations
+(https://huggingface.co/convaiinnovations/laya), licensed under the
+Apache License, Version 2.0. Laya's weights are not included in this
+repository. Ranke is an independent project and is not endorsed by
+Convai Innovations.
+
+Ranke can optionally call Jev by TypeSafe AI using your own API key.
+Jev is a separate, paid service governed by TypeSafe's own terms.
+Ranke is not endorsed by TypeSafe AI.

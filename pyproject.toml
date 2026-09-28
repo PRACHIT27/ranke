@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ranke"
+version = "0.1.0"
+description = "Check whether your AI made things up, using Laya as the grader and your expert as the judge of the grader."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Prachit Tupe" }]
+keywords = ["llm", "evaluation", "hallucination", "llm-as-judge", "laya", "grounding"]
+dependencies = [
+    "laya>=0.3.20",
+    "pandas>=2.0",
+    "openpyxl>=3.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/PRACHIT27/ranke"
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+ranke = "ranke.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

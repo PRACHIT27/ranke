@@ -1,0 +1,105 @@
+name: Ranke
+description: Check whether your AI made things up, using Laya as the grader and your expert as the judge of the grader.
+branding:
+  icon: check-circle
+  color: blue
+
+inputs:
+  file:
+    description: Path to your cases file (.xlsx or .csv)
+    required: true
+  mode:
+    description: test (check Laya against your expert), eval (grade your AI), or both (test, then eval)
+    default: test
+  fail-below:
+    description: Scores below this are graded fail
+    default: "0.3"
+  pass-from:
+    description: Scores at or above this are graded pass
+    default: "0.9"
+  with-input:
+    description: Also show the grader the User input column
+    default: "false"
+  grader:
+    description: laya (free, runs here), jev (sends rows to TypeSafe), or auto (Laya, long rows to Jev)
+    default: laya
+  typesafe-api-key:
+    description: Your own TypeSafe key, only needed for jev or auto. Pass it from a secret.
+    default: ""
+  retention-days:
+    description: Days to keep the results download
+    default: "3"
+
+outputs:
+  results:
+    description: Path to the results file
+    value: ${{ steps.run.outputs.results }}
+  test-report:
+    description: Path to the test report, if test ran
+    value: ${{ steps.run.outputs.test-report }}
+  eval-report:
+    description: Path to the eval report, if eval ran
+    value: ${{ steps.run.outputs.eval-report }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Cache Laya model
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/huggingface/hub
+        key: ranke-laya-55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851
+
+    - name: Install Ranke
+      shell: bash
+      run: |
+        python -m pip install --quiet torch --index-url https://download.pytorch.org/whl/cpu
+        python -m pip install --quiet "${{ github.action_path }}"
+
+    - name: Run Ranke
+      id: run
+      shell: bash
+      env:
+        HF_HUB_DISABLE_TELEMETRY: "1"
+        USE_TF: "0"
+        RANKE_FILE: ${{ inputs.file }}
+        RANKE_MODE: ${{ inputs.mode }}
+        RANKE_FAIL_BELOW: ${{ inputs.fail-below }}
+        RANKE_PASS_FROM: ${{ inputs.pass-from }}
+        RANKE_WITH_INPUT: ${{ inputs.with-input }}
+        RANKE_GRADER: ${{ inputs.grader }}
+        TYPESAFE_API_KEY: ${{ inputs.typesafe-api-key }}
+      run: |
+        case "$RANKE_MODE" in test|eval|both) ;; *) echo "mode must be test, eval or both"; exit 1 ;; esac
+        opts=(--grader "$RANKE_GRADER" --fail-below "$RANKE_FAIL_BELOW" --pass-from "$RANKE_PASS_FROM")
+        if [ "$RANKE_WITH_INPUT" = "true" ]; then opts+=(--with-input); fi
+        dir=$(dirname "$RANKE_FILE"); base=$(basename "$RANKE_FILE"); stem="${base%.*}"; stem="${stem%_results}"; ext="${base##*.}"
+        [ "$ext" = "csv" ] || ext="xlsx"
+        results="$dir/${stem}_results.$ext"
+        set -o pipefail
+        : > ranke_output.txt
+        if [ "$RANKE_MODE" != "eval" ]; then
+          ranke test "$RANKE_FILE" "${opts[@]}" | tee -a ranke_output.txt
+          echo "test-report=$dir/${stem}_test_report.html" >> "$GITHUB_OUTPUT"
+        fi
+        if [ "$RANKE_MODE" != "test" ]; then
+          input="$RANKE_FILE"; [ "$RANKE_MODE" = "both" ] && input="$results"
+          ranke eval "$input" "${opts[@]}" | tee -a ranke_output.txt
+          echo "eval-report=$dir/${stem}_eval_report.html" >> "$GITHUB_OUTPUT"
+        fi
+        echo "results=$results" >> "$GITHUB_OUTPUT"
+        { echo "## Ranke $RANKE_MODE"; echo '```'; grep -v '^Results:\|^Report:' ranke_output.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Upload results
+      uses: actions/upload-artifact@v4
+      with:
+        name: ranke-${{ inputs.mode }}-results
+        path: |
+          ${{ steps.run.outputs.results }}
+          ${{ steps.run.outputs.test-report }}
+          ${{ steps.run.outputs.eval-report }}
+        retention-days: ${{ inputs.retention-days }}
